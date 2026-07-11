@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -68,6 +69,12 @@ export default function LoginPage() {
             {loading ? '登录中...' : '登录'}
           </button>
         </form>
+
+        <div className="text-center">
+          <Link href="/write" className="text-xs text-brand-muted hover:text-gray-300">
+            首页
+          </Link>
+        </div>
       </div>
     </main>
   )

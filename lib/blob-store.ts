@@ -274,7 +274,9 @@ export async function deletePaste(
   const meta = await fetchMeta(hash)
   if (!meta) return { ok: false }
 
-  if (options.deleteToken !== meta.deleteToken) {
+  // Token is optional: anyone with the hash (i.e. the link) can delete.
+  // If a token IS provided, it must match.
+  if (options.deleteToken !== undefined && options.deleteToken !== meta.deleteToken) {
     return { ok: false }
   }
 

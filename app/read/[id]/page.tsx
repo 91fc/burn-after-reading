@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { use } from 'react'
+import Link from 'next/link'
 import { Loader } from '@/components/Loader'
 import {
   getFragmentKeyFromUrl,
@@ -22,6 +23,7 @@ type ReadState =
   | 'invalid'
   | 'missing-key'
   | 'decrypt-failed'
+  | 'deleted'
 
 interface PasteMeta {
   contentType: string
@@ -114,6 +116,18 @@ export default function ReadPage({
     }
   }
 
+  // Step 3: Delete (persistent mode only — burn auto-deletes on reveal)
+  async function handleDelete() {
+    if (!confirm('确定要删除这条消息吗？删除后无法恢复。')) return
+
+    try {
+      await fetch(`/api/data/${id}`, { method: 'DELETE' })
+      setState('deleted')
+    } catch {
+      // Network error — stay on current state
+    }
+  }
+
   async function handleShowViews() {
     if (showViews) {
       setShowViews(false)
@@ -188,6 +202,16 @@ export default function ReadPage({
       <CenteredCard icon="⏰" title="已过期">
         <p className="text-sm text-brand-muted">
           此消息已过期，无法再访问。
+        </p>
+      </CenteredCard>
+    )
+  }
+
+  if (state === 'deleted') {
+    return (
+      <CenteredCard icon="🗑️" title="已删除">
+        <p className="text-sm text-brand-muted">
+          消息已从服务器删除。
         </p>
       </CenteredCard>
     )
@@ -292,6 +316,15 @@ export default function ReadPage({
         >
           {isBurn ? '查看并销毁' : '查看消息'}
         </button>
+
+        {!isBurn && (
+          <button
+            onClick={handleDelete}
+            className="mt-2 w-full rounded-lg border border-brand-danger/30 px-4 py-2 text-xs font-medium text-brand-danger hover:bg-brand-danger/10"
+          >
+            删除消息
+          </button>
+        )}
       </CenteredCard>
     )
   }
@@ -302,13 +335,21 @@ export default function ReadPage({
 
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <div className="mb-4 flex items-center gap-2 text-sm text-brand-muted">
-          <span>{isBurn ? '🔥' : '📎'}</span>
-          <span>
-            {isBurn
-              ? '此消息已从服务器永久销毁。'
-              : `此消息将在 ${new Date(meta?.expiresAt ?? '').toLocaleString()} 后自动删除。`}
-          </span>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-brand-muted">
+            <span>{isBurn ? '🔥' : '📎'}</span>
+            <span>
+              {isBurn
+                ? '此消息已从服务器永久销毁。'
+                : `此消息将在 ${new Date(meta?.expiresAt ?? '').toLocaleString()} 后自动删除。`}
+            </span>
+          </div>
+          <Link
+            href="/write"
+            className="text-xs text-brand-muted hover:text-gray-300"
+          >
+            首页
+          </Link>
         </div>
 
         <div className="rounded-lg border border-white/10 bg-brand-surface p-6">
@@ -335,6 +376,15 @@ export default function ReadPage({
             </div>
           ) : null}
         </div>
+
+        {!isBurn && (
+          <button
+            onClick={handleDelete}
+            className="mt-4 w-full rounded-lg border border-brand-danger/30 px-4 py-2 text-xs font-medium text-brand-danger hover:bg-brand-danger/10"
+          >
+            删除消息
+          </button>
+        )}
       </main>
     )
   }
@@ -363,6 +413,11 @@ function CenteredCard({
           <h1 className="text-lg font-semibold">{title}</h1>
         </div>
         <div className="rounded-lg border border-white/10 bg-brand-surface p-6">{children}</div>
+        <div className="text-center">
+          <Link href="/write" className="text-xs text-brand-muted hover:text-gray-300">
+            首页
+          </Link>
+        </div>
       </div>
     </main>
   )
