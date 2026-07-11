@@ -28,6 +28,7 @@ export default function WritePage() {
   const [resultUrl, setResultUrl] = useState('')
   const [deleteToken, setDeleteToken] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setAuthed(true)
@@ -133,6 +134,8 @@ export default function WritePage() {
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(resultUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (state === 'finished') {
@@ -161,7 +164,7 @@ export default function WritePage() {
               onClick={handleCopyLink}
               className="flex-1 rounded-lg bg-brand-accent px-4 py-3 text-sm font-medium text-brand-dark hover:opacity-90"
             >
-              复制链接
+              {copied ? '✓ 已复制' : '复制链接'}
             </button>
             <button
               onClick={handleDelete}
