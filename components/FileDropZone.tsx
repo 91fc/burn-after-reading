@@ -61,13 +61,13 @@ export function FileDropZone({
             }}
             className="mt-2 text-xs text-brand-danger hover:underline"
           >
-            Remove
+            移除
           </button>
         </div>
       ) : (
         <div className="text-center text-brand-muted">
           <div className="mb-1 text-2xl">📂</div>
-          <p className="text-sm">Drop a file here or click to browse</p>
+          <p className="text-sm">拖拽文件到此处，或点击选择</p>
         </div>
       )}
     </div>

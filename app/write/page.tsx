@@ -84,12 +84,12 @@ export default function WritePage() {
         return
       }
       if (res.status === 413) {
-        setError('File too large. Use the direct upload flow for files over 4.5MB.')
+        setError('文件过大。超过 4.5MB 的文件请使用大文件上传。')
         setState('writing')
         return
       }
       if (!res.ok) {
-        setError('Failed to upload. Please try again.')
+        setError('上传失败，请重试。')
         setState('writing')
         return
       }
@@ -99,7 +99,7 @@ export default function WritePage() {
       setResultUrl(url)
       setState('finished')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Encryption failed')
+      setError(err instanceof Error ? err.message : '加密失败')
       setState('writing')
     }
   }
@@ -122,9 +122,9 @@ export default function WritePage() {
         <div className="w-full max-w-md space-y-6">
           <div className="text-center">
             <div className="mb-2 text-4xl">✅</div>
-            <h1 className="text-lg font-semibold">Secret link created</h1>
+            <h1 className="text-lg font-semibold">加密链接已创建</h1>
             <p className="mt-1 text-sm text-brand-muted">
-              Share this link. It self-destructs after one view.
+              分享此链接。对方查看后将自动销毁。
             </p>
           </div>
 
@@ -137,13 +137,13 @@ export default function WritePage() {
               onClick={handleCopyLink}
               className="flex-1 rounded-lg bg-brand-accent px-4 py-3 text-sm font-medium text-brand-dark hover:opacity-90"
             >
-              Copy Link
+              复制链接
             </button>
             <button
               onClick={handleNewPaste}
               className="flex-1 rounded-lg border border-white/10 px-4 py-3 text-sm font-medium hover:bg-white/5"
             >
-              New
+              新建
             </button>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function WritePage() {
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🔒</span>
-          <h1 className="text-lg font-semibold">Burn After Reading</h1>
+          <h1 className="text-lg font-semibold">阅后即焚</h1>
         </div>
         <button
           onClick={async () => {
@@ -165,11 +165,11 @@ export default function WritePage() {
           }}
           className="text-xs text-brand-muted hover:text-gray-300"
         >
-          Sign Out
+          退出登录
         </button>
       </div>
 
-      {state === 'encrypting' && <Loader message="Encrypting and uploading..." />}
+      {state === 'encrypting' && <Loader message="加密并上传中..." />}
 
       {state === 'writing' && (
         <div className="space-y-6">
@@ -183,7 +183,7 @@ export default function WritePage() {
                   : 'border border-white/10 bg-brand-surface text-brand-muted'
               }`}
             >
-              Message
+              消息
             </button>
             <button
               onClick={() => setMode('file')}
@@ -193,7 +193,7 @@ export default function WritePage() {
                   : 'border border-white/10 bg-brand-surface text-brand-muted'
               }`}
             >
-              File
+              文件
             </button>
           </div>
 
@@ -202,7 +202,7 @@ export default function WritePage() {
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your secret message..."
+              placeholder="输入你的秘密消息..."
               rows={6}
               className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
             />
@@ -213,13 +213,13 @@ export default function WritePage() {
           {/* Optional passphrase */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-brand-muted">
-              Extra passphrase (optional)
+              额外密码（可选）
             </label>
             <input
               type="password"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Leave empty for link-only encryption"
+              placeholder="留空则仅使用链接加密"
               className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
             />
           </div>
@@ -227,7 +227,7 @@ export default function WritePage() {
           {/* Expiration */}
           <div>
             <label className="mb-2 block text-xs font-medium text-brand-muted">
-              Expires in
+              有效期
             </label>
             <ExpirationPicker selected={expirationIdx} onSelect={setExpirationIdx} />
           </div>
@@ -240,7 +240,7 @@ export default function WritePage() {
             disabled={mode === 'message' ? !message.trim() : !file}
             className="w-full rounded-lg bg-brand-accent px-4 py-3 text-sm font-medium text-brand-dark transition hover:opacity-90 disabled:opacity-40"
           >
-            Encrypt &amp; Create Link
+            加密并创建链接
           </button>
         </div>
       )}

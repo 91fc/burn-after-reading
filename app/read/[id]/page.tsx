@@ -101,7 +101,7 @@ export default function ReadPage({
         return
       }
       if (res.status === 503) {
-        setError('Content temporarily unavailable. Try again.')
+        setError('内容暂时不可用，请重试。')
         setState('landing')
         return
       }
@@ -128,7 +128,7 @@ export default function ReadPage({
       displayContent(plaintext, meta?.contentType ?? 'application/octet-stream')
     } catch (err) {
       if (err instanceof Error && err.message === 'WRONG_PASSPHRASE') {
-        setError('Wrong passphrase. Try again.')
+        setError('密码错误，请重试。')
         setState('passphrase-required')
       } else {
         setState('decrypt-failed')
@@ -163,7 +163,7 @@ export default function ReadPage({
       displayContent(plaintext, meta?.contentType ?? 'application/octet-stream')
     } catch (err) {
       if (err instanceof Error && err.message === 'WRONG_PASSPHRASE') {
-        setError('Wrong passphrase. Try again.')
+        setError('密码错误，请重试。')
         setState('passphrase-required')
       } else {
         setState('decrypt-failed')
@@ -191,17 +191,16 @@ export default function ReadPage({
   if (state === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <Loader message="Checking link..." />
+        <Loader message="正在检查链接..." />
       </main>
     )
   }
 
   if (state === 'missing-key') {
     return (
-      <CenteredCard icon="🔑" title="Missing decryption key">
+      <CenteredCard icon="🔑" title="缺少解密密钥">
         <p className="text-sm text-brand-muted">
-          This link is missing the decryption key. Make sure you copied the full link
-          including the part after the #.
+          此链接缺少解密密钥。请确保你复制了完整的链接，包括 # 后面的部分。
         </p>
       </CenteredCard>
     )
@@ -209,17 +208,17 @@ export default function ReadPage({
 
   if (state === 'invalid') {
     return (
-      <CenteredCard icon="❓" title="Invalid link">
-        <p className="text-sm text-brand-muted">This link is not valid.</p>
+      <CenteredCard icon="❓" title="无效链接">
+        <p className="text-sm text-brand-muted">此链接无效。</p>
       </CenteredCard>
     )
   }
 
   if (state === 'burned') {
     return (
-      <CenteredCard icon="🔥" title="Already destroyed">
+      <CenteredCard icon="🔥" title="已销毁">
         <p className="text-sm text-brand-muted">
-          This message was already read and has been permanently destroyed.
+          此消息已被查看并永久销毁。
         </p>
       </CenteredCard>
     )
@@ -227,9 +226,9 @@ export default function ReadPage({
 
   if (state === 'expired') {
     return (
-      <CenteredCard icon="⏰" title="Expired">
+      <CenteredCard icon="⏰" title="已过期">
         <p className="text-sm text-brand-muted">
-          This message has expired and is no longer available.
+          此消息已过期，无法再访问。
         </p>
       </CenteredCard>
     )
@@ -237,9 +236,9 @@ export default function ReadPage({
 
   if (state === 'decrypt-failed') {
     return (
-      <CenteredCard icon="🔓" title="Couldn't decrypt">
+      <CenteredCard icon="🔓" title="无法解密">
         <p className="text-sm text-brand-muted">
-          The link may be incomplete or the message was corrupted.
+          链接可能不完整，或消息已损坏。
         </p>
       </CenteredCard>
     )
@@ -248,7 +247,7 @@ export default function ReadPage({
   if (state === 'revealing') {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <Loader message="Revealing & decrypting..." />
+        <Loader message="正在解密..." />
       </main>
     )
   }
@@ -256,10 +255,10 @@ export default function ReadPage({
   // Landing: show metadata, wait for user to click Reveal
   if (state === 'landing' && meta) {
     const typeLabel = meta.contentType.startsWith('text/')
-      ? 'Text message'
+      ? '文本消息'
       : meta.contentType.startsWith('image/')
-        ? 'Image'
-        : 'File'
+        ? '图片'
+        : '文件'
     const sizeLabel =
       meta.sizeBytes < 1024
         ? `${meta.sizeBytes} B`
@@ -268,38 +267,38 @@ export default function ReadPage({
           : `${(meta.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 
     return (
-      <CenteredCard icon="✉️" title="You have a secret message">
+      <CenteredCard icon="✉️" title="你有一份加密消息">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-brand-muted">Type</span>
+            <span className="text-brand-muted">类型</span>
             <span>{typeLabel}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-brand-muted">Size</span>
+            <span className="text-brand-muted">大小</span>
             <span>{sizeLabel}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-brand-muted">Expires</span>
+            <span className="text-brand-muted">过期时间</span>
             <span>{new Date(meta.expiresAt).toLocaleString()}</span>
           </div>
         </div>
 
         <div className="mt-6 rounded-lg border border-brand-danger/20 bg-brand-danger/5 p-3">
           <p className="text-xs text-brand-danger">
-            ⚠️ This message will be permanently destroyed once revealed.
+            ⚠️ 此消息一旦查看将永久销毁。
           </p>
         </div>
 
         {meta.hasPassword ? (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-brand-muted">
-              This message requires a passphrase to reveal.
+              此消息需要密码才能查看。
             </p>
             <input
               type="password"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Enter passphrase"
+              placeholder="输入密码"
               className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
             />
             {error && <p className="text-sm text-brand-danger">{error}</p>}
@@ -308,7 +307,7 @@ export default function ReadPage({
               disabled={!passphrase}
               className="w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
             >
-              Reveal &amp; Destroy
+              查看并销毁
             </button>
           </div>
         ) : (
@@ -316,7 +315,7 @@ export default function ReadPage({
             onClick={handleReveal}
             className="mt-6 w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90"
           >
-            Reveal Message
+            查看消息
           </button>
         )}
       </CenteredCard>
@@ -326,12 +325,12 @@ export default function ReadPage({
   // passphrase-required (shouldn't normally hit since landing handles it, but safety net)
   if (state === 'passphrase-required') {
     return (
-      <CenteredCard icon="🔒" title="Passphrase required">
+      <CenteredCard icon="🔒" title="需要密码">
         <input
           type="password"
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
-          placeholder="Enter passphrase"
+          placeholder="输入密码"
           className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
         />
         {error && <p className="mt-2 text-sm text-brand-danger">{error}</p>}
@@ -340,7 +339,7 @@ export default function ReadPage({
           disabled={!passphrase}
           className="mt-4 w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
         >
-          Reveal &amp; Destroy
+          查看并销毁
         </button>
       </CenteredCard>
     )
@@ -352,14 +351,14 @@ export default function ReadPage({
       <main className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-4 flex items-center gap-2 text-sm text-brand-muted">
           <span>🔥</span>
-          <span>This message has been permanently destroyed from the server.</span>
+          <span>此消息已从服务器永久销毁。</span>
         </div>
 
         <div className="rounded-lg border border-white/10 bg-brand-surface p-6">
           {content.isImage && content.blobUrl ? (
             <img
               src={content.blobUrl}
-              alt="Shared content"
+              alt="分享的内容"
               className="mx-auto max-h-[60vh] rounded"
             />
           ) : content.text !== undefined ? (
@@ -368,13 +367,13 @@ export default function ReadPage({
             </pre>
           ) : content.blobUrl ? (
             <div className="text-center">
-              <p className="mb-3 text-sm">{content.filename ?? 'Download file'}</p>
+              <p className="mb-3 text-sm">{content.filename ?? '下载文件'}</p>
               <a
                 href={content.blobUrl}
                 download={content.filename}
                 className="inline-block rounded-lg bg-brand-accent px-6 py-3 text-sm font-medium text-brand-dark hover:opacity-90"
               >
-                Download
+                下载
               </a>
             </div>
           ) : null}

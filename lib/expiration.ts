@@ -1,9 +1,9 @@
 export const EXPIRATION_OPTIONS = [
-  { label: '10 minutes', count: 10, unit: 'minutes' as const },
-  { label: '6 hours', count: 6, unit: 'hours' as const },
-  { label: '1 day', count: 1, unit: 'days' as const },
-  { label: '3 days', count: 3, unit: 'days' as const },
-  { label: '1 week', count: 1, unit: 'weeks' as const },
+  { label: '10 分钟', count: 10, unit: 'minutes' as const },
+  { label: '6 小时', count: 6, unit: 'hours' as const },
+  { label: '1 天', count: 1, unit: 'days' as const },
+  { label: '3 天', count: 3, unit: 'days' as const },
+  { label: '1 周', count: 1, unit: 'weeks' as const },
 ]
 
 export function getExpirationDate(optionIndex: number): Date {
