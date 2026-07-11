@@ -17,3 +17,4 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 .local-data/
+/.claude
