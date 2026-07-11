@@ -2,18 +2,11 @@
  * Client-side encryption utilities.
  *
  * Security model:
- * - Every paste is ALWAYS encrypted with a randomly generated 256-bit key.
+ * - Every paste is encrypted with a randomly generated 256-bit key.
  * - That key is embedded in the URL fragment (#key=...) and NEVER sent to the server.
- * - An optional user passphrase adds a second encryption layer via PBKDF2.
- *
- * This replaces the original app's broken crypto which:
- * - Made encryption optional (stored plaintext with 32 zero-byte prefix)
- * - Used AES-CTR without authentication (malleable ciphertext)
- * - Stored SHA-256(password) prefix enabling offline brute-force
+ * - No passphrase layer (removed by design decision — user accepted URL-leak risk).
  */
 
-const PBKDF2_ITERATIONS = 100_000
-const SALT_LENGTH = 16
 const IV_LENGTH = 12 // AES-GCM standard
 const KEY_LENGTH = 256
 
@@ -42,60 +35,13 @@ export async function keyFromFragment(fragmentKey: string): Promise<CryptoKey> {
   ])
 }
 
-export interface EncryptResult {
-  /** Encrypted payload: salt (if password) + IV + ciphertext+tag */
-  ciphertext: ArrayBuffer
-  hasPassword: boolean
-}
-
 /**
- * Encrypt content. Always encrypts with the fragment key.
- * If a passphrase is provided, first derives a PBKDF2 key and uses it
- * to encrypt the fragment key, so both layers are required to decrypt.
+ * Encrypt content with the fragment key (single-layer AES-GCM).
  */
 export async function encryptContent(
   plaintext: ArrayBuffer,
   fragmentKey: string,
-  passphrase?: string,
-): Promise<EncryptResult> {
-  if (passphrase) {
-    // Double-layer: derive PBKDF2 key from passphrase, use it to encrypt the
-    // raw fragment key. Final payload = salt + iv + enc(fragmentKey) + iv2 + enc(content)
-    const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
-    const passKey = await derivePassphraseKey(passphrase, salt)
-    const rawFragmentKey = base64UrlToBytes(fragmentKey)
-
-    // Encrypt the fragment key with the passphrase-derived key
-    const iv1 = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
-    const encFragmentKey = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: iv1 },
-      passKey,
-      rawFragmentKey,
-    )
-
-    // Encrypt the content with the fragment key
-    const symKey = await keyFromFragment(fragmentKey)
-    const iv2 = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
-    const encContent = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: iv2 },
-      symKey,
-      plaintext,
-    )
-
-    // Pack: salt + iv1 + encFragmentKey(with tag) + iv2 + encContent(with tag)
-    const total = salt.length + iv1.length + encFragmentKey.byteLength + iv2.length + encContent.byteLength
-    const result = new Uint8Array(total)
-    let off = 0
-    result.set(salt, off); off += salt.length
-    result.set(iv1, off); off += iv1.length
-    result.set(new Uint8Array(encFragmentKey), off); off += encFragmentKey.byteLength
-    result.set(iv2, off); off += iv2.length
-    result.set(new Uint8Array(encContent), off)
-
-    return { ciphertext: result.buffer, hasPassword: true }
-  }
-
-  // Single-layer: just fragment key
+): Promise<ArrayBuffer> {
   const symKey = await keyFromFragment(fragmentKey)
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
   const encrypted = await crypto.subtle.encrypt(
@@ -109,70 +55,18 @@ export async function encryptContent(
   result.set(iv, 0)
   result.set(new Uint8Array(encrypted), IV_LENGTH)
 
-  return { ciphertext: result.buffer, hasPassword: false }
+  return result.buffer
 }
 
 /**
- * Decrypt content. Requires the fragment key. If the payload has a
- * passphrase layer, the passphrase is also required.
+ * Decrypt content with the fragment key (single-layer AES-GCM).
  */
 export async function decryptContent(
   ciphertext: ArrayBuffer,
   fragmentKey: string,
-  passphrase?: string,
 ): Promise<ArrayBuffer> {
   const data = new Uint8Array(ciphertext)
 
-  if (data.length > SALT_LENGTH && passphrase) {
-    // Double-layer decryption
-    const salt = data.slice(0, SALT_LENGTH)
-    let off = SALT_LENGTH
-
-    const iv1 = data.slice(off, off + IV_LENGTH); off += IV_LENGTH
-    const encFragmentKeyEnd = off + detectGcmBoundary(data, off)
-    const encFragmentKey = data.slice(off, encFragmentKeyEnd); off = encFragmentKeyEnd
-
-    // Derive passphrase key and decrypt the fragment key
-    const passKey = await derivePassphraseKey(passphrase, salt)
-    let rawFragmentKey: Uint8Array
-    try {
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv1 },
-        passKey,
-        encFragmentKey,
-      )
-      rawFragmentKey = new Uint8Array(decrypted)
-    } catch {
-      throw new Error('WRONG_PASSPHRASE')
-    }
-
-    // Use the decrypted fragment key for content
-    const contentKey = await crypto.subtle.importKey(
-      'raw',
-      rawFragmentKey,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt'],
-    )
-
-    const iv2 = data.slice(off, off + IV_LENGTH); off += IV_LENGTH
-    const encContent = data.slice(off)
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv2 },
-      contentKey,
-      encContent,
-    )
-    return plaintext
-  }
-
-  // Single-layer: try with provided fragment key directly
-  // If there's a passphrase layer but no passphrase was given, decryption will fail
-  const hasPassphraseLayer = data.length > SALT_LENGTH + IV_LENGTH * 2 + 16 + 16
-  if (hasPassphraseLayer && !passphrase) {
-    throw new Error('PASSPHRASE_REQUIRED')
-  }
-
-  // Single-layer decryption
   const iv = data.slice(0, IV_LENGTH)
   const encContent = data.slice(IV_LENGTH)
   const symKey = await keyFromFragment(fragmentKey)
@@ -186,44 +80,6 @@ export async function decryptContent(
   } catch {
     throw new Error('DECRYPT_FAILED')
   }
-}
-
-/**
- * Derive an AES-GCM key from a passphrase using PBKDF2.
- */
-async function derivePassphraseKey(
-  passphrase: string,
-  salt: Uint8Array,
-): Promise<CryptoKey> {
-  const enc = new TextEncoder()
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey'],
-  )
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: KEY_LENGTH },
-    false,
-    ['encrypt', 'decrypt'],
-  )
-}
-
-/**
- * Heuristic to find the GCM boundary in a packed buffer.
- * For the passphrase layer, encFragmentKey is always exactly 32 bytes key + 16 bytes tag = 48 bytes.
- */
-function detectGcmBoundary(_data: Uint8Array, _start: number): number {
-  // Raw key is 32 bytes (256-bit), GCM tag is 16 bytes
-  return 32 + 16
 }
 
 // --- Base64URL helpers ---
@@ -245,14 +101,6 @@ export function base64UrlToBytes(b64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i)
   }
   return bytes
-}
-
-/**
- * Cast a Uint8Array to BufferSource for crypto.subtle compatibility (TS 5.7).
- * Safe because we never use SharedArrayBuffer.
- */
-function toBuf(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer as ArrayBuffer
 }
 
 // --- Server-side SHA-256 for hashing content (used in API routes) ---

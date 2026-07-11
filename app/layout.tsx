@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '阅后即焚',
-  description: '分享加密消息和文件，查看后自动销毁。',
+  title: '加密分享',
+  description: '分享加密消息和文件。',
   icons: { icon: '/icon.png' },
 }
 

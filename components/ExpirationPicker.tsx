@@ -1,17 +1,23 @@
 'use client'
 
-import { EXPIRATION_OPTIONS } from '@/lib/expiration'
+interface ExpirationOption {
+  label: string
+  count: number
+  unit: 'minutes' | 'hours' | 'days' | 'weeks'
+}
 
 export function ExpirationPicker({
   selected,
   onSelect,
+  options,
 }: {
   selected: number
   onSelect: (index: number) => void
+  options: ExpirationOption[]
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {EXPIRATION_OPTIONS.map((opt, i) => (
+      {options.map((opt, i) => (
         <button
           key={i}
           type="button"

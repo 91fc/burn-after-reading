@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { login } from '@/lib/auth'
-import { ensureSchema } from '@/lib/db'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure DB schema exists (idempotent, runs once per login session)
-    await ensureSchema().catch(() => {})
-
     const body = await request.json()
     const password = body?.password
 

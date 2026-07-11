@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPasteMetadata, deletePaste } from '@/lib/db'
-import { deleteBlob } from '@/lib/blob'
+import { getPasteMetadata, deletePaste } from '@/lib/memory-store'
 
 export const runtime = 'nodejs'
 
 /**
- * GET /api/data/[key] — metadata only (does NOT burn).
- * Returns contentType, sizeBytes, hasPassword, expiresAt.
+ * GET /api/data/[key] — metadata only.
+ * Returns contentType, sizeBytes, mode, expiresAt, viewCount.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params
-  const paste = await getPasteMetadata(key)
+  const paste = getPasteMetadata(key)
 
   if (!paste) {
     return NextResponse.json(
@@ -22,7 +21,7 @@ export async function GET(
     )
   }
 
-  // Check if expired (lazy deletion trigger)
+  // Check if expired
   if (paste.expiresAt < new Date()) {
     return NextResponse.json(
       { error: 'gone', reason: 'expired', expiresAt: paste.expiresAt.toISOString() },
@@ -30,34 +29,30 @@ export async function GET(
     )
   }
 
-  // Check if already revealed
-  if (paste.viewedAt) {
-    return NextResponse.json(
-      { error: 'gone', reason: 'burned' },
-      { status: 410 },
-    )
-  }
-
   return NextResponse.json({
     contentType: paste.contentType,
     sizeBytes: paste.sizeBytes,
-    hasPassword: paste.hasPassword,
+    mode: paste.mode,
     expiresAt: paste.expiresAt.toISOString(),
+    viewCount: paste.viewCount,
   })
 }
 
 /**
  * DELETE /api/data/[key] — permanently remove a paste.
+ * Requires the correct deleteToken (passed via x-delete-token header).
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params
-  const result = await deletePaste(key)
-  if (!result) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  const deleteToken = request.headers.get('x-delete-token') ?? undefined
+
+  const result = deletePaste(key, { deleteToken })
+  if (!result.ok) {
+    return NextResponse.json({ error: 'not_found_or_unauthorized' }, { status: 404 })
   }
-  await deleteBlob(result.storageKey)
+
   return NextResponse.json({ ok: true })
 }

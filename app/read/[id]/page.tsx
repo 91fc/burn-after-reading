@@ -10,23 +10,25 @@ import {
   extractPrefix,
 } from '@/lib/client/crypto'
 
+type ShareMode = 'burn' | 'persistent'
+
 type ReadState =
   | 'loading'
-  | 'landing' // metadata fetched, waiting for user to click Reveal
-  | 'revealing' // fetching content + decrypting
-  | 'content' // decrypted content displayed
-  | 'burned' // already viewed
+  | 'landing'
+  | 'revealing'
+  | 'content'
+  | 'burned'
   | 'expired'
-  | 'invalid' // not found
-  | 'missing-key' // no fragment key in URL
-  | 'passphrase-required' // paste has password, user needs to enter it
-  | 'decrypt-failed' // wrong key or corrupted
+  | 'invalid'
+  | 'missing-key'
+  | 'decrypt-failed'
 
 interface PasteMeta {
   contentType: string
   sizeBytes: number
-  hasPassword: boolean
+  mode: ShareMode
   expiresAt: string
+  viewCount: number
 }
 
 export default function ReadPage({
@@ -38,7 +40,6 @@ export default function ReadPage({
   const [state, setState] = useState<ReadState>('loading')
   const [meta, setMeta] = useState<PasteMeta | null>(null)
   const [fragmentKey, setFragmentKey] = useState<string | null>(null)
-  const [passphrase, setPassphrase] = useState('')
   const [content, setContent] = useState<{
     text?: string
     blobUrl?: string
@@ -46,7 +47,8 @@ export default function ReadPage({
     contentType: string
     isImage: boolean
   } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [showViews, setShowViews] = useState(false)
+  const [viewLog, setViewLog] = useState<{ ip: string; timestamp: string }[]>([])
 
   // Step 1: Check for fragment key + fetch metadata
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function ReadPage({
       .catch(() => setState('invalid'))
   }, [id])
 
-  // Step 2: Reveal (fetch + decrypt + burn)
+  // Step 2: Reveal (fetch + decrypt)
   async function handleReveal() {
     if (!fragmentKey) {
       setState('missing-key')
@@ -88,7 +90,6 @@ export default function ReadPage({
     }
 
     setState('revealing')
-    setError(null)
 
     try {
       const res = await fetch(`/api/data/${id}/reveal`, {
@@ -100,74 +101,30 @@ export default function ReadPage({
         setState(body.reason === 'expired' ? 'expired' : 'burned')
         return
       }
-      if (res.status === 503) {
-        setError('内容暂时不可用，请重试。')
-        setState('landing')
-        return
-      }
       if (!res.ok) {
         setState('decrypt-failed')
         return
       }
 
       const ciphertext = await res.arrayBuffer()
-
-      // Try decrypt with fragment key only first
-      let plaintext: ArrayBuffer
-      try {
-        plaintext = await decryptContent(ciphertext, fragmentKey)
-      } catch (err) {
-        if (err instanceof Error && err.message === 'PASSPHRASE_REQUIRED') {
-          // This paste needs a passphrase — but we should have known from metadata
-          setState('passphrase-required')
-          return
-        }
-        throw err
-      }
-
+      const plaintext = await decryptContent(ciphertext, fragmentKey)
       displayContent(plaintext, meta?.contentType ?? 'application/octet-stream')
-    } catch (err) {
-      if (err instanceof Error && err.message === 'WRONG_PASSPHRASE') {
-        setError('密码错误，请重试。')
-        setState('passphrase-required')
-      } else {
-        setState('decrypt-failed')
-      }
+    } catch {
+      setState('decrypt-failed')
     }
   }
 
-  // Reveal with passphrase
-  async function handleRevealWithPassphrase() {
-    if (!fragmentKey || !passphrase) return
-
-    setState('revealing')
-    setError(null)
-
-    try {
-      const res = await fetch(`/api/data/${id}/reveal`, {
-        method: 'POST',
-      })
-
-      if (res.status === 410) {
-        const body = await res.json()
-        setState(body.reason === 'expired' ? 'expired' : 'burned')
-        return
-      }
-      if (!res.ok) {
-        setState('decrypt-failed')
-        return
-      }
-
-      const ciphertext = await res.arrayBuffer()
-      const plaintext = await decryptContent(ciphertext, fragmentKey, passphrase)
-      displayContent(plaintext, meta?.contentType ?? 'application/octet-stream')
-    } catch (err) {
-      if (err instanceof Error && err.message === 'WRONG_PASSPHRASE') {
-        setError('密码错误，请重试。')
-        setState('passphrase-required')
-      } else {
-        setState('decrypt-failed')
-      }
+  async function handleShowViews() {
+    if (showViews) {
+      setShowViews(false)
+      return
+    }
+    setShowViews(true)
+    setViewLog([])
+    const res = await fetch(`/api/data/${id}/views`)
+    if (res.ok) {
+      const data = await res.json()
+      setViewLog(data.views)
     }
   }
 
@@ -208,8 +165,10 @@ export default function ReadPage({
 
   if (state === 'invalid') {
     return (
-      <CenteredCard icon="❓" title="无效链接">
-        <p className="text-sm text-brand-muted">此链接无效。</p>
+      <CenteredCard icon="❓" title="链接无效">
+        <p className="text-sm text-brand-muted">
+          此链接可能已过期或服务器已重启导致数据丢失。
+        </p>
       </CenteredCard>
     )
   }
@@ -254,6 +213,7 @@ export default function ReadPage({
 
   // Landing: show metadata, wait for user to click Reveal
   if (state === 'landing' && meta) {
+    const isBurn = meta.mode === 'burn'
     const typeLabel = meta.contentType.startsWith('text/')
       ? '文本消息'
       : meta.contentType.startsWith('image/')
@@ -267,7 +227,7 @@ export default function ReadPage({
           : `${(meta.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 
     return (
-      <CenteredCard icon="✉️" title="你有一份加密消息">
+      <CenteredCard icon={isBurn ? '✉️' : '📎'} title={isBurn ? '你有一份加密消息' : '你有一条加密消息'}>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-brand-muted">类型</span>
@@ -281,65 +241,56 @@ export default function ReadPage({
             <span className="text-brand-muted">过期时间</span>
             <span>{new Date(meta.expiresAt).toLocaleString()}</span>
           </div>
+          {!isBurn && (
+            <div className="flex justify-between">
+              <span className="text-brand-muted">已查看</span>
+              <span>{meta.viewCount} 次</span>
+            </div>
+          )}
         </div>
 
-        <div className="mt-6 rounded-lg border border-brand-danger/20 bg-brand-danger/5 p-3">
-          <p className="text-xs text-brand-danger">
-            ⚠️ 此消息一旦查看将永久销毁。
-          </p>
-        </div>
-
-        {meta.hasPassword ? (
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-brand-muted">
-              此消息需要密码才能查看。
-            </p>
-            <input
-              type="password"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="输入密码"
-              className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
-            />
-            {error && <p className="text-sm text-brand-danger">{error}</p>}
+        {!isBurn && (
+          <div className="mt-3">
             <button
-              onClick={handleRevealWithPassphrase}
-              disabled={!passphrase}
-              className="w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
+              onClick={handleShowViews}
+              className="text-xs text-brand-muted underline hover:text-gray-300"
             >
-              查看并销毁
+              {showViews ? '收起访问记录' : '查看访问记录'}
             </button>
+            {showViews && (
+              <div className="mt-2 space-y-1 rounded border border-white/10 p-2">
+                {viewLog.length === 0 ? (
+                  <p className="text-xs text-brand-muted">暂无查看记录</p>
+                ) : (
+                  viewLog.map((v, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span className="font-mono text-gray-300">{v.ip}</span>
+                      <span className="text-brand-muted">
+                        {new Date(v.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
-        ) : (
-          <button
-            onClick={handleReveal}
-            className="mt-6 w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90"
-          >
-            查看消息
-          </button>
         )}
-      </CenteredCard>
-    )
-  }
 
-  // passphrase-required (shouldn't normally hit since landing handles it, but safety net)
-  if (state === 'passphrase-required') {
-    return (
-      <CenteredCard icon="🔒" title="需要密码">
-        <input
-          type="password"
-          value={passphrase}
-          onChange={(e) => setPassphrase(e.target.value)}
-          placeholder="输入密码"
-          className="w-full rounded-lg border border-white/10 bg-brand-surface px-4 py-3 text-sm focus:border-brand-accent focus:outline-none"
-        />
-        {error && <p className="mt-2 text-sm text-brand-danger">{error}</p>}
+        {isBurn ? (
+          <div className="mt-6 rounded-lg border border-brand-danger/20 bg-brand-danger/5 p-3">
+            <p className="text-xs text-brand-danger">
+              ⚠️ 此消息一旦查看将永久销毁。
+            </p>
+          </div>
+        ) : null}
+
         <button
-          onClick={handleRevealWithPassphrase}
-          disabled={!passphrase}
-          className="mt-4 w-full rounded-lg bg-brand-danger px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
+          onClick={handleReveal}
+          className={`mt-6 w-full rounded-lg px-4 py-3 text-sm font-medium text-white hover:opacity-90 ${
+            isBurn ? 'bg-brand-danger' : 'bg-brand-accent'
+          }`}
         >
-          查看并销毁
+          {isBurn ? '查看并销毁' : '查看消息'}
         </button>
       </CenteredCard>
     )
@@ -347,11 +298,17 @@ export default function ReadPage({
 
   // Content displayed
   if (state === 'content' && content) {
+    const isBurn = meta?.mode === 'burn'
+
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-4 flex items-center gap-2 text-sm text-brand-muted">
-          <span>🔥</span>
-          <span>此消息已从服务器永久销毁。</span>
+          <span>{isBurn ? '🔥' : '📎'}</span>
+          <span>
+            {isBurn
+              ? '此消息已从服务器永久销毁。'
+              : `此消息将在 ${new Date(meta?.expiresAt ?? '').toLocaleString()} 后自动删除。`}
+          </span>
         </div>
 
         <div className="rounded-lg border border-white/10 bg-brand-surface p-6">

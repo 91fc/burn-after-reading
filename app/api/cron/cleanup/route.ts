@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getExpiredPastes } from '@/lib/db'
-import { deleteBlob } from '@/lib/blob'
+import { sweepExpired } from '@/lib/memory-store'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
  * GET /api/cron/cleanup
- * Protected by CRON_SECRET. Runs every 5 minutes via vercel.json cron config.
- * Deletes expired and already-viewed pastes + their blobs.
+ * Protected by CRON_SECRET. Sweeps expired pastes from memory.
+ * Note: In-memory store also sweeps inline on every create, so this is a backup.
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -23,15 +22,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Delete expired + viewed pastes from DB and return their storage keys
-  const expired = await getExpiredPastes()
-
-  // Delete each blob (best-effort, parallel)
-  const deletions = expired.map((p) => deleteBlob(p.storageKey).catch(() => null))
-  await Promise.allSettled(deletions)
+  const deleted = sweepExpired()
 
   return NextResponse.json({
     ok: true,
-    deleted: expired.length,
+    deleted,
   })
 }
