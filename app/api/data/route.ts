@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPaste, MAX_PASTE_SIZE } from '@/lib/memory-store'
+import { createPaste, MAX_PASTE_SIZE } from '@/lib/blob-store'
 import { sha256Hash } from '@/lib/client/crypto'
 
 export const runtime = 'nodejs'
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   const hash = await sha256Hash(rawBody)
 
-  const result = createPaste({
+  const result = await createPaste({
     hash,
     encryptedContent: rawBody,
     contentType: pasteContentType,

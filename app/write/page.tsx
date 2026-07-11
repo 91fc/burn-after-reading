@@ -148,7 +148,7 @@ export default function WritePage() {
                 : '分享此链接。到期前可多次查看。'}
             </p>
             <p className="mt-1 text-xs text-brand-muted/70">
-              数据仅保存在内存中，服务重启后链接会失效。
+              数据加密存储在服务器，到期后自动删除。
             </p>
           </div>
 

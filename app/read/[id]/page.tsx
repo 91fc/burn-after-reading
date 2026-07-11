@@ -167,7 +167,7 @@ export default function ReadPage({
     return (
       <CenteredCard icon="❓" title="链接无效">
         <p className="text-sm text-brand-muted">
-          此链接可能已过期或服务器已重启导致数据丢失。
+          此链接可能已过期或已被删除。
         </p>
       </CenteredCard>
     )

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSession, getSession, deleteSession } from './memory-store'
+import { createSession, getSession, deleteSession } from './blob-store'
 
 const SESSION_COOKIE = 'bar-session'
 const SESSION_DURATION_DAYS = 7

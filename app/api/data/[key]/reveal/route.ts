@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revealPaste } from '@/lib/memory-store'
+import { revealPaste } from '@/lib/blob-store'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -22,7 +22,7 @@ export async function POST(
   // Extract viewer IP
   const ip = getClientIP(request)
 
-  const result = revealPaste(key, ip)
+  const result = await revealPaste(key, ip)
 
   if (!result.ok) {
     const status = result.reason === 'not_found' ? 404 : 410

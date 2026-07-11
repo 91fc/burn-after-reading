@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getViews } from '@/lib/memory-store'
+import { getViews } from '@/lib/blob-store'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params
-  const views = getViews(key)
+  const views = await getViews(key)
 
   if (views === null) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 })

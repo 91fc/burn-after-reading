@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPasteMetadata, deletePaste } from '@/lib/memory-store'
+import { getPasteMetadata, deletePaste } from '@/lib/blob-store'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params
-  const paste = getPasteMetadata(key)
+  const paste = await getPasteMetadata(key)
 
   if (!paste) {
     return NextResponse.json(
@@ -49,7 +49,7 @@ export async function DELETE(
   const { key } = await params
   const deleteToken = request.headers.get('x-delete-token') ?? undefined
 
-  const result = deletePaste(key, { deleteToken })
+  const result = await deletePaste(key, { deleteToken })
   if (!result.ok) {
     return NextResponse.json({ error: 'not_found_or_unauthorized' }, { status: 404 })
   }

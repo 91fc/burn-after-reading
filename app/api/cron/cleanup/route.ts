@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sweepExpired } from '@/lib/memory-store'
+import { sweepExpired } from '@/lib/blob-store'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
  * GET /api/cron/cleanup
- * Protected by CRON_SECRET. Sweeps expired pastes from memory.
- * Note: In-memory store also sweeps inline on every create, so this is a backup.
+ * Protected by CRON_SECRET. Sweeps expired pastes from Blob storage.
+ * Inline expiration checks on read paths also clean up lazily.
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const deleted = sweepExpired()
+  const deleted = await sweepExpired()
 
   return NextResponse.json({
     ok: true,
