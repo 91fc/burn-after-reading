@@ -112,10 +112,19 @@ export default function WritePage() {
     if (!match) return
     const hash = match[1]
 
-    await fetch(`/api/data/${hash}`, {
-      method: 'DELETE',
-      headers: { 'x-delete-token': deleteToken },
-    })
+    try {
+      const res = await fetch(`/api/data/${hash}`, {
+        method: 'DELETE',
+        headers: { 'x-delete-token': deleteToken },
+      })
+      if (!res.ok) {
+        alert('删除失败，请重试')
+        return
+      }
+    } catch {
+      alert('网络错误，删除失败')
+      return
+    }
 
     setState('writing')
     setMessage('')

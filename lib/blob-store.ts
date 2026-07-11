@@ -136,14 +136,12 @@ async function fetchBlobBytes(pathname: string): Promise<ArrayBuffer | null> {
 }
 
 /**
- * Delete content + meta blobs for a hash. Best-effort, never throws.
+ * Delete content + meta blobs for a hash.
+ * del() is idempotent — succeeds silently if blobs don't exist.
+ * Real errors (auth, network) propagate to the caller.
  */
 async function deletePasteBlobs(hash: string): Promise<void> {
-  try {
-    await del([contentPath(hash), metaPath(hash)])
-  } catch {
-    // Already deleted or never existed — fine
-  }
+  await del([contentPath(hash), metaPath(hash)])
 }
 
 /**

@@ -121,10 +121,14 @@ export default function ReadPage({
     if (!confirm('确定要删除这条消息吗？删除后无法恢复。')) return
 
     try {
-      await fetch(`/api/data/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/data/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        alert('删除失败，请重试')
+        return
+      }
       setState('deleted')
     } catch {
-      // Network error — stay on current state
+      alert('网络错误，删除失败')
     }
   }
 
